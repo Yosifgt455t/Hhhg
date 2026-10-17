@@ -1,0 +1,31 @@
+workflows:
+  android-release:
+    name: Build Android APK (Release)
+    max_build_duration: 30
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      java: 17
+    scripts:
+      - name: Prepare Android Platform Files
+        script: |
+          if [ ! -d "android" ]; then
+            echo "Generating Android scaffolding..."
+            mkdir -p /tmp/flutter_backup
+            cp -r lib /tmp/flutter_backup/
+            cp pubspec.yaml /tmp/flutter_backup/
+
+            flutter create . --platforms=android --org com.example.flutterdemo --project-name flutter_demo_app
+
+            cp -rf /tmp/flutter_backup/lib/* lib/
+            cp -f /tmp/flutter_backup/pubspec.yaml pubspec.yaml
+            rm -rf /tmp/flutter_backup
+          fi
+      - name: Get Dependencies
+        script: |
+          flutter pub get
+      - name: Build Release APK
+        script: |
+          flutter build apk --release
+    artifacts:
+      - build/**/outputs/**/*.apk
