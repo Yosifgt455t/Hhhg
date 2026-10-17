@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>بطاقة بوكيمون 3D الهولوغرافية | Pokémon 3D Holo Card</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    :root {
+      --card-width: 350px;
+      --card-height: 510px;
+      --primary: #ffcb05;
+      --accent: #3b4cca;
+      --glow-color: rgba(255, 215, 0, 0.75);
+      --card-bg-1: #1e1b10;
+      --card-bg-2: #4a3b00;
+      --border-gold: linear-gradient(135deg, #ffe066 0%, #d4af37 25%, #fff6cc 50%, #aa7c11 75%, #ffd700 100%);
+      --rx: 0deg;
+      --ry: 0deg;
+      --mx: 50%;
+      --my: 50%;
+      --hyp: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 50% 25%, #192236 0%, #090c15 70%, #040508 100%);
+      color: #fff;
+      font-family: 'Cairo', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      overflow-x: hidden;
+      padding: 16px 12px 24px;
+      perspective: 1200px;
+    }
+
+    /* Ambient floating background stars */
+    .bg-particles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      background-image:
+        radial-gradient(2px 2px at 20px 30px, rgba(255, 255, 255, 0.5), transparent),
+        radial-gradient(2px 2px at 90px 140px, rgba(255, 215, 0, 0.5), transparent),
+        radial-gradient(2px 2px at 250px 80px, rgba(120, 200, 255, 0.5), transparent),
+        radial-gradient(1.5px 1.5px at 310px 260px, rgba(255, 255, 255, 0.4), transparent);
+      background-size: 350px 350px;
+      animation: bgDrift 25s linear infinite;
+    }
+
+    @keyframes bgDrift {
+      from { background-position: 0 0; }
+      to { background-position: 350px 350px; }
+    }
+
+    /* Header & Switcher */
+    .top-bar {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 900;
+      font-size: 1.35rem;
+      letter-spacing: 0.5px;
+      text-shadow: 0 0 18px var(--glow-color);
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, #ffcb05, #ff9900);
+      color: #0b0e17;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 900;
+      padding: 3px 9px;
+      border-radius: 99px;
+      box-shadow: 0 0 12px rgba(255, 203, 5, 0.6);
+    }
+
+    .pokemon-selector {
+      display: flex;
+      gap: 8px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      padding: 6px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.45);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .poke-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #cbd5e1;
+      padding: 6px 13px;
+      border-radius: 11px;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .poke-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      transform: translateY(-2px);
+    }
+
+    .poke-btn.active {
+      background: linear-gradient(135deg, var(--primary), #ff8800);
+      color: #090d16;
+      border-color: transparent;
+      box-shadow: 0 0 16px var(--glow-color);
+      transform: scale(1.04);
+    }
+
+    /* Main 3D Stage */
+    .scene-stage {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 18px 0;
+      perspective: 1100px;
+      touch-action: none;
+    }
+
+    /* 3D Card Wrapper */
+    .card-3d-wrapper {
+      width: var(--card-width);
+      height: var(--card-height);
+      position: relative;
+      transform-style: preserve-3d;
+      transform: rotateX(var(--rx)) rotateY(var(--ry));
+      transition: transform 0.08s ease-out;
+      cursor: grab;
+    }
+
+    .card-3d-wrapper:active {
+      cursor: grabbing;
+    }
+
+    .card-3d-wrapper.shake {
+      animation: cardShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+
+    @keyframes cardShake {
+      0%, 100% { transform: rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0, 0, 0); }
+      20% { transform: rotateX(calc(var(--rx) + 6deg)) rotateY(calc(var(--ry) - 6deg)) translate3d(-6px, -4px, 20px); }
+      40% { transform: rotateX(calc(var(--rx) - 6deg)) rotateY(calc(var(--ry) + 6deg)) translate3d(6px, 4px, 25px); }
+      60% { transform: rotateX(calc(var(--rx) + 4deg)) rotateY(calc(var(--ry) - 4deg)) translate3d(-4px, 2px, 15px); }
+      80% { transform: rotateX(calc(var(--rx) - 3deg)) rotateY(calc(var(--ry) + 3deg)) translate3d(4px, -2px, 10px); }
+    }
+
+    /* Card Back Aura */
+    .card-aura {
+      position: absolute;
+      inset: -16px;
+      border-radius: 28px;
+      background: radial-gradient(circle at var(--mx) var(--my), var(--glow-color), transparent 70%);
+      filter: blur(22px);
+      opacity: 0.75;
+      transform: translateZ(-35px);
+      pointer-events: none;
+      transition: background 0.3s ease;
+    }
+
+    /* Main Card Body */
+    .pokemon-card {
+      position: absolute;
+      inset: 0;
+      border-radius: 22px;
+      padding: 11px;
+      background: var(--border-gold);
+      box-shadow:
+        0 25px 50px rgba(0, 0, 0, 0.75),
+        0 0 2px 1px rgba(255, 255, 255, 0.5) inset;
+      transform-style: preserve-3d;
+    }
+
+    .card-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 14px;
+      background: linear-gradient(155deg, var(--card-bg-1) 0%, var(--card-bg-2) 55%, #0c0f1d 100%);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 12px 14px;
+      overflow: hidden;
+      border: 1.5px solid rgba(255, 230, 128, 0.45);
+    }
+
+    /* Holographic Foil Overlay */
+    .holo-foil {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 4;
+      background:
+        repeating-linear-gradient(
+          115deg,
+          rgba(255, 0, 128, 0.16) 0%,
+          rgba(255, 204, 0, 0.16) 7%,
+          rgba(0, 255, 180, 0.16) 14%,
+          rgba(0, 170, 255, 0.16) 21%,
+          rgba(170, 0, 255, 0.16) 28%,
+          rgba(255, 0, 128, 0.16) 35%
+        ),
+        radial-gradient(
+          circle at var(--mx) var(--my),
+          rgba(255, 255, 255, 0.55) 0%,
+          rgba(255, 255, 255, 0.15) 28%,
+          transparent 65%
+        );
+      background-size: 250% 250%, 100% 100%;
+      background-position: var(--mx) var(--my), center;
+      mix-blend-mode: color-dodge;
+      opacity: calc(0.32 + var(--hyp) * 0.48);
+      transition: opacity 0.2s;
+    }
+
+    /* Sparkle / Glitter Texture Layer */
+    .holo-sparkles {
+      position: absolute;
+      inset: 0;
+      border-radius: 14px;
+      pointer-events: none;
+      z-index: 5;
+      background-image:
+        radial-gradient(circle at 20% 25%, rgba(255,255,255,0.85) 1px, transparent 2px),
+        radial-gradient(circle at 75% 18%, rgba(255,240,150,0.9) 1.5px, transparent 2.5px),
+        radial-gradient(circle at 40% 60%, rgba(160,240,255,0.85) 1px, transparent 2px),
+        radial-gradient(circle at 82% 72%, rgba(255,180,255,0.9) 1.5px, transparent 2.5px),
+        radial-gradient(circle at 18% 82%, rgba(255,255,255,0.8) 1px, transparent 2px),
+        radial-gradient(circle at 60% 38%, rgba(255,255,255,0.9) 1.2px, transparent 2.2px);
+      background-size: 90px 90px;
+      mix-blend-mode: screen;
+      opacity: calc(0.2 + var(--hyp) * 0.65);
+    }
+
+    /* Card Header */
+    .card-header {
+      position: relative;
+      z-index: 6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transform: translateZ(20px);
+    }
+
+    .poke-name-group {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .stage-pill {
+      font-size: 0.65rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffe066, #b8860b);
+      color: #111;
+      padding: 1px 7px;
+      border-radius: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .poke-name {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7);
+    }
+
+    .hp-group {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .hp-label {
+      font-size: 0.7rem;
+      color: #fde047;
+      font-weight: 900;
+    }
+
+    .hp-val {
+      font-size: 1.35rem;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 0 10px var(--glow-color);
+    }
+
+    .type-orb {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      margin-right: 4px;
+      box-shadow: 0 0 10px rgba(255,255,255,0.4), inset 0 2px 4px rgba(255,255,255,0.6);
+      background: var(--primary);
+    }
+
+    /* Artwork Frame */
+    .art-window {
+      position: relative;
+      width: 100%;
+      height: 215px;
+      margin: 6px 0;
+      border-radius: 10px;
+      border: 3px solid #e5c158;
+      box-shadow:
+        0 6px 18px rgba(0,0,0,0.6),
+        inset 0 0 30px rgba(0,0,0,0.8);
+      background: radial-gradient(circle at 50% 50%, var(--art-bg-inner, #3b3000) 0%, #090b12 90%);
+      overflow: hidden;
+      z-index: 3;
+    }
+
+    .art-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
+      background-size: 22px 22px;
+      transform: perspective(300px) rotateX(55deg) translateY(35px) scale(1.6);
+      opacity: 0.45;
+    }
+
+    /* Pop-out Three.js Canvas Layer (breaks out of card in 3D!) */
+    .three-popout-layer {
+      position: absolute;
+      top: 26px;
+      left: -25px;
+      width: calc(var(--card-width) + 50px);
+      height: 290px;
+      transform: translateZ(58px);
+      pointer-events: none;
+      z-index: 25;
+      filter: drop-shadow(0 18px 18px rgba(0, 0, 0, 0.65));
+    }
+
+    #pokeCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Info Strip Under Art */
+    .poke-meta-strip {
+      position: relative;
+      z-index: 6;
+      background: linear-gradient(90deg, #b8860b, #ffe066, #b8860b);
+      color: #1a1400;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-align: center;
+      padding: 2px 8px;
+      border-radius: 5px;
+      transform: translateZ(22px);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.45);
+    }
+
+    /* Attacks Section */
+    .attacks-list {
+      position: relative;
+      z-index: 8;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 6px;
+      transform: translateZ(30px);
+    }
+
+    .attack-btn {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid rgba(255, 230, 128, 0.35);
+      border-radius: 10px;
+      padding: 8px 10px;
+      color: #fff;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: right;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      backdrop-filter: blur(6px);
+    }
+
+    .attack-btn:hover {
+      background: rgba(255, 203, 5, 0.2);
+      border-color: #ffcb05;
+      transform: scale(1.02) translateZ(6px);
+      box-shadow: 0 0 15px var(--glow-color);
+    }
+
+    .attack-btn:active {
+      transform: scale(0.98);
+    }
+
+    .attack-row-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .attack-title {
+      font-weight: 800;
+      font-size: 0.92rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #fef08a;
+    }
+
+    .attack-dmg {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 900;
+      font-size: 1rem;
+      color: #fff;
+    }
+
+    .attack-desc {
+      font-size: 0.72rem;
+      color: #cbd5e1;
+      line-height: 1.3;
+    }
+
+    /* Card Footer */
+    .card-footer {
+      position: relative;
+      z-index: 6;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.68rem;
+      color: #cbd5e1;
+      border-top: 1px solid rgba(255, 255, 255, 0.16);
+      padding-top: 6px;
+      transform: translateZ(18px);
+    }
+
+    .footer-pill {
+      background: rgba(0, 0, 0, 0.45);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    /* Controls Dock */
+    .bottom-controls {
+      position: relative;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .ctrl-btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: #f8fafc;
+      padding: 8px 15px;
+      border-radius: 12px;
+      font-family: 'Cairo', sans-serif;
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      backdrop-filter: blur(8px);
+    }
+
+    .ctrl-btn:hover {
+      background: rgba(51, 65, 85, 0.95);
+      border-color: var(--primary);
+      transform: translateY(-2px);
+    }
+
+    .ctrl-btn.active {
+      border-color: var(--primary);
+      color: var(--primary);
+      box-shadow: 0 0 12px rgba(255, 203, 5, 0.3);
+    }
+
+    .hint-text {
+      font-size: 0.78rem;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    @media (max-width: 400px) {
+      :root {
+        --card-width: 315px;
+        --card-height: 475px;
+      }
+      .art-window {
+        height: 190px;
+      }
+      .three-popout-layer {
+        height: 255px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-particles"></div>
+
+  <!-- Top Bar & Pokémon Switcher -->
+  <header class="top-bar">
+    <div class="brand-title">
+      <span>بطاقة البوكيمون ثلاثية الأبعاد</span>
+      <span class="brand-badge">3D HOLO EX</span>
+    </div>
+    <div class="pokemon-selector" id="pokemonSelector">
+      <button class="poke-btn active" data-poke="pikachu">⚡ بيكاتشو</button>
+      <button class="poke-btn" data-poke="charizard">🔥 تشاريزارد</button>
+      <button class="poke-btn" data-poke="gengar">👻 جينغار</button>
+      <button class="poke-btn" data-poke="pokeball">🔮 ماستر بول</button>
+    </div>
+  </header>
+
+  <!-- 3D Interactive Holographic Card Stage -->
+  <main class="scene-stage" id="sceneStage">
+    <div class="card-3d-wrapper" id="cardWrapper">
+      <div class="card-aura" id="cardAura"></div>
+
+      <!-- Pop-out 3D Model Canvas -->
+      <div class="three-popout-layer">
+        <canvas id="pokeCanvas"></canvas>
+      </div>
+
+      <div class="pokemon-card">
+        <div class="card-inner">
+          <div class="holo-foil"></div>
+          <div class="holo-sparkles"></div>
+
+          <!-- Header -->
+          <div class="card-header">
+            <div class="poke-name-group">
+              <span class="stage-pill" id="cardStage">EX أسطوري</span>
+              <h1 class="poke-name" id="cardName">بيكاتشو</h1>
+            </div>
+            <div class="hp-group">
+              <span class="hp-label">HP</span>
+              <span class="hp-val" id="cardHp">190</span>
+              <span class="type-orb" id="cardOrb">⚡</span>
+            </div>
+          </div>
+
+          <!-- 3D Art Window Backdrop -->
+          <div class="art-window">
+            <div class="art-grid"></div>
+          </div>
+
+          <!-- Meta Strip -->
+          <div class="poke-meta-strip" id="cardMeta">
+            رقم #025 • بوكيمون الفأر الكهربائي • الطول: 0.4م • الوزن: 6.0 كجم
+          </div>
+
+          <!-- Interactive Attacks -->
+          <div class="attacks-list">
+            <button class="attack-btn" id="attackBtn1">
+              <div class="attack-row-top">
+                <span class="attack-title" id="atk1Title">⚡ صاعقة الفولت الخارقة</span>
+                <span class="attack-dmg" id="atk1Dmg">120</span>
+              </div>
+              <p class="attack-desc" id="atk1Desc">اضغط لإطلاق شحنة كهربائية ثلاثية الأبعاد تفجر الهالة الذهبية!</p>
+            </button>
+
+            <button class="attack-btn" id="attackBtn2">
+              <div class="attack-row-top">
+                <span class="attack-title" id="atk2Title">✨ قفزة الرعد السريعة</span>
+                <span class="attack-dmg" id="atk2Dmg">70+</span>
+              </div>
+              <p class="attack-desc" id="atk2Desc">شقلبة بهلوانية 3D مع شرارات ضوئية تزيد قوة البطاقة.</p>
+            </button>
+          </div>
+
+          <!-- Footer -->
+          <div class="card-footer">
+            <span class="footer-pill" id="cardWeakness">الضعف: أرضي ×2</span>
+            <span class="footer-pill" id="cardRarity">★★★ HOLO RARE</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Bottom Controls -->
+  <footer class="bottom-controls">
+    <div class="action-bar">
+      <button class="ctrl-btn" id="btnTriggerAttack">💥 تنفيذ هجوم 3D</button>
+      <button class="ctrl-btn active" id="btnAutoSpin">🔄 دوران المجسم تلقائياً</button>
+      <button class="ctrl-btn active" id="btnSound">🔊 المؤثرات الصوتية</button>
+    </div>
+    <p class="hint-text">حرّك الماوس أو إصبعك فوق البطاقة لإمالتها ثلاثية الأبعاد، واضغط على الهجمات لتفعيل حركات البوكيمون!</p>
+  </footer>
+
+  <script>
+    // ==========================================
+    // 1. بيانات البوكيمونات والبطاقات
+    // ==========================================
+    const POKEMON_DATA = {
+      pikachu: {
+        name: 'بيكاتشو',
+        stage: 'EX أسطوري',
+        hp: '190',
+        orb: '⚡',
+        primary: '#ffcb05',
+        glow: 'rgba(255, 215, 0, 0.8)',
+        bg1: '#262005',
+        bg2: '#594600',
+        artBg: '#4d3d00',
+        meta: 'رقم #025 • بوكيمون الفأر الكهربائي • الطول: 0.4م • الوزن: 6.0 كجم',
+        atk1Title: '⚡ صاعقة الفولت الخارقة',
+        atk1Dmg: '120',
+        atk1Desc: 'اضغط لإطلاق شحنة كهربائية ثلاثية الأبعاد تفجر الهالة الذهبية!',
+        atk2Title: '✨ قفزة الرعد السريعة',
+        atk2Dmg: '70+',
+        atk2Desc: 'شقلبة بهلوانية 3D مع شرارات ضوئية تزيد قوة البطاقة.',
+        weakness: 'الضعف: أرضي ×2',
+        rarity: '★★★ LIGHTNING HOLO',
+        particleColor: 0xffe600
+      },
+      charizard: {
+        name: 'تشاريزارد',
+        stage: 'MEGA EX',
+        hp: '330',
+        orb: '🔥',
+        primary: '#ff5500',
+        glow: 'rgba(255, 85, 0, 0.85)',
+        bg1: '#2b0d04',
+        bg2: '#6b1d07',
+        artBg: '#5c1906',
+        meta: 'رقم #006 • بوكيمون اللهب التنيني • الطول: 1.7م • الوزن: 90.5 كجم',
+        atk1Title: '🔥 عاصفة الجحيم البركانية',
+        atk1Dmg: '250',
+        atk1Desc: 'ينفث لهباً حارقاً في الفضاء ثلاثي الأبعاد مع خفقان الأجنحة!',
+        atk2Title: '🐉 مخلب التنين الناري',
+        atk2Dmg: '140',
+        atk2Desc: 'اندفاع جوي سريع يترك شظايا نارية متوهجة حول البطاقة.',
+        weakness: 'الضعف: مائي ×2',
+        rarity: '★★★ CRIMSON FIRE HOLO',
+        particleColor: 0xff4500
+      },
+      gengar: {
+        name: 'جينغار',
+        stage: 'VMAX شبح',
+        hp: '270',
+        orb: '👻',
+        primary: '#a855f7',
+        glow: 'rgba(168, 85, 247, 0.85)',
+        bg1: '#170926',
+        bg2: '#3b1561',
+        artBg: '#2e104d',
+        meta: 'رقم #094 • بوكيمون الظل الغامض • الطول: 1.5م • الوزن: 40.5 كجم',
+        atk1Title: '👻 كرة الظل الكابوسية',
+        atk1Dmg: '180',
+        atk1Desc: 'يطلق طاقة ظلامية غامضة مع ابتسامة مرعبة وعيون متوهجة!',
+        atk2Title: '🔮 طيف البعد الخفي',
+        atk2Dmg: '110+',
+        atk2Desc: 'يدور في الفضاء ويختفي جزئياً بين الأبعاد الهولوغرافية.',
+        weakness: 'الضعف: ظلام ×2',
+        rarity: '★★★ PHANTOM HOLO',
+        particleColor: 0xc084fc
+      },
+      pokeball: {
+        name: 'ماستر بول',
+        stage: 'أداة أسطورية',
+        hp: 'MAX',
+        orb: '🔮',
+        primary: '#ec4899',
+        glow: 'rgba(236, 72, 153, 0.85)',
+        bg1: '#1e0b24',
+        bg2: '#52154e',
+        artBg: '#42103f',
+        meta: 'أندر كرة بوكيمون في العالم • نسبة الإمساك: 100% بدون فشل',
+        atk1Title: '🔮 شعاع الإمساك المطلق',
+        atk1Dmg: '∞',
+        atk1Desc: 'تفتح الكرة الأسطورية لإطلاق طاقة كونية تلتقط أي بوكيمون!',
+        atk2Title: '⚡ نبضة المصفوفة الكونية',
+        atk2Dmg: '150',
+        atk2Desc: 'حلقات طاقة ثلاثية الأبعاد تدور بسرعة فائقة حول المركز.',
+        weakness: 'المقاومة: جميع الأنواع',
+        rarity: '★★★ SECRET MASTER RARE',
+        particleColor: 0xf472b6
+      }
+    };
+
+    let currentPokeKey = 'pikachu';
+    let autoSpin = true;
+    let soundEnabled = true;
+    let attackAnimProgress = 0;
+    let attackType = 1;
+
+    // ==========================================
+    // 2. مؤثرات صوتية تفاعلية (Web Audio API)
+    // ==========================================
+    let audioCtx = null;
+    function playPokeSound(type, pokeKey) {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'switch') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.14);
+          gain.gain.setValueAtTime(0.12, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+          osc.start(now);
+          osc.stop(now + 0.16);
+        } else {
+          // Attack sound tailored per pokemon
+          if (pokeKey === 'pikachu') {
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(900, now);
+            osc.frequency.exponentialRampToValueAtTime(220, now + 0.12);
+            osc.frequency.exponentialRampToValueAtTime(1400, now + 0.25);
+            osc.frequency.exponentialRampToValueAtTime(180, now + 0.45);
+          } else if (pokeKey === 'charizard') {
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(260, now);
+            osc.frequency.exponentialRampToValueAtTime(75, now + 0.5);
+          } else if (pokeKey === 'gengar') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.linearRampToValueAtTime(620, now + 0.2);
+            osc.frequency.linearRampToValueAtTime(180, now + 0.48);
+          } else {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(520, now);
+            osc.frequency.exponentialRampToValueAtTime(1250, now + 0.35);
+          }
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+          osc.start(now);
+          osc.stop(now + 0.48);
+        }
+      } catch (e) {}
+    }
+
+    // ==========================================
+    // 3. إعداد مشهد Three.js والمجسمات 3D
+    // ==========================================
+    const canvas = document.getElementById('pokeCanvas');
+    const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+    camera.position.set(0, 0.35, 6.2);
+
+    function resizeRenderer() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height, false);
+      camera.aspect = rect.width / rect.height;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener('resize', resizeRenderer);
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    scene.add(ambientLight);
+
+    const keyLight = new THREE.DirectionalLight(0xfff6dd, 1.35);
+    keyLight.position.set(4, 6, 5);
+    scene.add(keyLight);
+
+    const rimLight = new THREE.PointLight(0xffcb05, 2.2, 12);
+    rimLight.position.set(-3, 2, -2);
+    scene.add(rimLight);
+
+    const bottomLight = new THREE.PointLight(0x38bdf8, 1.1, 10);
+    bottomLight.position.set(0, -3, 3);
+    scene.add(bottomLight);
+
+    // Master Root Group
+    const rootGroup = new THREE.Group();
+    scene.add(rootGroup);
+
+    const modelHolder = new THREE.Group();
+    rootGroup.add(modelHolder);
+
+    // Energy Ring & Floating Particles around the 3D Pokémon
+    const auraGroup = new THREE.Group();
+    rootGroup.add(auraGroup);
+
+    const ringGeo = new THREE.TorusGeometry(1.65, 0.035, 16, 80);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0xffe600, transparent: true, opacity: 0.65 });
+    const holoRing = new THREE.Mesh(ringGeo, ringMat);
+    holoRing.rotation.x = Math.PI / 2.2;
+    holoRing.position.y = -0.9;
+    auraGroup.add(holoRing);
+
+    const orbs = [];
+    const orbGeo = new THREE.OctahedronGeometry(0.11, 0);
+    for (let i = 0; i < 16; i++) {
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0xffe600,
+        emissive: 0xffaa00,
+        emissiveIntensity: 0.9,
+        roughness: 0.2
+      });
+      const orb = new THREE.Mesh(orbGeo, mat);
+      const angle = (i / 16) * Math.PI * 2;
+      const radius = 1.4 + Math.random() * 0.5;
+      orb.userData = {
+        angle,
+        radius,
+        speed: 0.8 + Math.random() * 1.2,
+        yBase: (Math.random() - 0.5) * 2.2
+      };
+      auraGroup.add(orb);
+      orbs.push(orb);
+    }
+
+    // ==========================================
+    // 4. بناء مجسمات البوكيمون ثلاثية الأبعاد برمجياً
+    // ==========================================
+    function buildPikachu3D() {
+      const group = new THREE.Group();
+
+      const yellowMat = new THREE.MeshStandardMaterial({ color: 0xffd000, roughness: 0.32, metalness: 0.08 });
+      const darkMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.2 });
+      const cheekMat = new THREE.MeshStandardMaterial({
+        color: 0xff2a2a,
+        emissive: 0xff1111,
+        emissiveIntensity: 0.55,
+        roughness: 0.25
+      });
+      const whiteMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+      const brownMat = new THREE.MeshStandardMaterial({ color: 0x6b3e08, roughness: 0.5 });
+
+      // Body
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.82, 32, 32), yellowMat);
+      body.scale.set(1, 1.12, 0.88);
+      body.position.y = -0.35;
+      group.add(body);
+
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.76, 32, 32), yellowMat);
+      head.scale.set(1.06, 0.96, 0.95);
+      head.position.set(0, 0.52, 0.06);
+      group.add(head);
+
+      // Ears (Left & Right)
+      function createEar(isLeft) {
+        const earGroup = new THREE.Group();
+        const earMain = new THREE.Mesh(new THREE.ConeGeometry(0.21, 0.85, 24), yellowMat);
+        earMain.position.y = 0.4;
+        earGroup.add(earMain);
+
+        const earTip = new THREE.Mesh(new THREE.ConeGeometry(0.125, 0.38, 24), darkMat);
+        earTip.position.y = 0.65;
+        earGroup.add(earTip);
+
+        earGroup.position.set(isLeft ? -0.45 : 0.45, 1.02, 0);
+        earGroup.rotation.z = isLeft ? 0.42 : -0.42;
+        earGroup.rotation.x = -0.12;
+        return earGroup;
+      }
+      const leftEar = createEar(true);
+      const rightEar = createEar(false);
+      group.add(leftEar, rightEar);
+
+      // Eyes
+      [-0.28, 0.28].forEach((x) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.115, 20, 20), darkMat);
+        eye.position.set(x, 0.6, 0.67);
+        group.add(eye);
+
+        const shine = new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 12), whiteMat);
+        shine.position.set(x + (x < 0 ? 0.03 : -0.03), 0.64, 0.76);
+        group.add(shine);
+      });
+
+      // Nose & cute smile
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.04, 12), darkMat);
+      nose.rotation.x = Math.PI;
+      nose.position.set(0, 0.48, 0.75);
+      group.add(nose);
+
+      // Glowing Red Electric Cheeks
+      [-0.5, 0.5].forEach((x) => {
+        const cheek = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 20), cheekMat);
+        cheek.scale.set(1, 0.85, 0.5);
+        cheek.position.set(x, 0.36, 0.58);
+        cheek.rotation.y = x < 0 ? -0.4 : 0.4;
+        group.add(cheek);
+      });
+
+      // Arms
+      [-0.68, 0.68].forEach((x) => {
+        const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.17, 0.55, 18), yellowMat);
+        arm.position.set(x, -0.12, 0.35);
+        arm.rotation.z = x < 0 ? 0.6 : -0.6;
+        arm.rotation.x = 0.5;
+        group.add(arm);
+      });
+
+      // Feet
+      [-0.36, 0.36].forEach((x) => {
+        const foot = new THREE.Mesh(new THREE.SphereGeometry(0.2, 18, 18), yellowMat);
+        foot.scale.set(0.9, 0.55, 1.5);
+        foot.position.set(x, -1.12, 0.22);
+        group.add(foot);
+      });
+
+      // Lightning Bolt Tail
+      const tailGroup = new THREE.Group();
+      const seg1 = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.45, 0.08), brownMat);
+      seg1.position.set(0, 0.15, 0);
+      seg1.rotation.z = -0.4;
+      const seg2 = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.55, 0.08), yellowMat);
+      seg2.position.set(0.22, 0.45, 0);
+      seg2.rotation.z = 0.4;
+      const seg3 = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.72, 0.09), yellowMat);
+      seg3.position.set(0.45, 0.88, 0);
+      seg3.rotation.z = -0.35;
+      tailGroup.add(seg1, seg2, seg3);
+      tailGroup.position.set(0.1, -0.55, -0.68);
+      tailGroup.rotation.y = -0.55;
+      group.add(tailGroup);
+
+      group.userData = { leftEar, rightEar, tailGroup };
+      return group;
+    }
+
+    function buildCharizard3D() {
+      const group = new THREE.Group();
+
+      const orangeMat = new THREE.MeshStandardMaterial({ color: 0xff6210, roughness: 0.35, metalness: 0.1 });
+      const creamMat = new THREE.MeshStandardMaterial({ color: 0xffe299, roughness: 0.4 });
+      const wingBlueMat = new THREE.MeshStandardMaterial({
+        color: 0x0ea5e9,
+        roughness: 0.3,
+        side: THREE.DoubleSide
+      });
+      const flameMat = new THREE.MeshStandardMaterial({
+        color: 0xffdd00,
+        emissive: 0xff4500,
+        emissiveIntensity: 1.2,
+        roughness: 0.1
+      });
+      const eyeMat = new THREE.MeshStandardMaterial({
+        color: 0x38bdf8,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.6
+      });
+
+      // Torso & Cream Belly
+      const body = new THREE.Mesh(new THREE.SphereGeometry(0.86, 32, 32), orangeMat);
+      body.scale.set(0.95, 1.18, 0.85);
+      body.position.y = -0.35;
+      group.add(body);
+
+      const belly = new THREE.Mesh(new THREE.SphereGeometry(0.72, 28, 28), creamMat);
+      belly.scale.set(0.85, 1.05, 0.55);
+      belly.position.set(0, -0.36, 0.42);
+      group.add(belly);
+
+      // Neck & Dragon Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.58, 28, 28), orangeMat);
+      head.scale.set(0.95, 0.9, 1.25);
+      head.position.set(0, 0.68, 0.18);
+      group.add(head);
+
+      // Snout
+      const snout = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.55), orangeMat);
+      snout.position.set(0, 0.58, 0.62);
+      group.add(snout);
+
+      // Horns
+      [-0.24, 0.24].forEach((x) => {
+        const horn = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.52, 16), orangeMat);
+        horn.position.set(x, 1.12, -0.08);
+        horn.rotation.x = -0.45;
+        horn.rotation.z = x < 0 ? 0.25 : -0.25;
+        group.add(horn);
+      });
+
+      // Glowing Dragon Eyes
+      [-0.24, 0.24].forEach((x) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), eyeMat);
+        eye.position.set(x, 0.76, 0.62);
+        group.add(eye);
+      });
+
+      // Dragon Wings (Left & Right)
+      function createWing(isLeft) {
+        const wingGroup = new THREE.Group();
+        const frame = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.12, 0.12), orangeMat);
+        frame.position.set(isLeft ? -0.6 : 0.6, 0.45, 0);
+        frame.rotation.z = isLeft ? -0.45 : 0.45;
+        wingGroup.add(frame);
+
+        const membrane = new THREE.Mesh(new THREE.ConeGeometry(0.95, 1.45, 4), wingBlueMat);
+        membrane.rotation.z = isLeft ? Math.PI * 0.65 : -Math.PI * 0.65;
+        membrane.scale.set(1, 1, 0.12);
+        membrane.position.set(isLeft ? -0.78 : 0.78, 0.1, -0.05);
+        wingGroup.add(membrane);
+
+        wingGroup.position.set(isLeft ? -0.35 : 0.35, 0.1, -0.45);
+        return wingGroup;
+      }
+      const leftWing = createWing(true);
+      const rightWing = createWing(false);
+      group.add(leftWing, rightWing);
+
+      // Flame Tail
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.15, 20), orangeMat);
+      tail.position.set(0, -0.68, -0.85);
+      tail.rotation.x = -1.1;
+      group.add(tail);
+
+      const flame = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.65, 16), flameMat);
+      flame.position.set(0, -0.32, -1.35);
+      flame.rotation.x = 0.25;
+      group.add(flame);
+
+      group.userData = { leftWing, rightWing, flame };
+      return group;
+    }
+
+    function buildGengar3D() {
+      const group = new THREE.Group();
+
+      const purpleMat = new THREE.MeshStandardMaterial({
+        color: 0x6d28d9,
+        roughness: 0.28,
+        metalness: 0.18
+      });
+      const eyeMat = new THREE.MeshStandardMaterial({
+        color: 0xff1e42,
+        emissive: 0xff002b,
+        emissiveIntensity: 0.95
+      });
+      const smileMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+
+      // Round Spooky Body
+      const body = new THREE.Mesh(new THREE.SphereGeometry(1.12, 36, 36), purpleMat);
+      body.scale.set(1.08, 0.98, 0.95);
+      group.add(body);
+
+      // Pointed Ears / Horns
+      [-0.65, 0.65].forEach((x) => {
+        const ear = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.85, 24), purpleMat);
+        ear.position.set(x, 0.92, 0);
+        ear.rotation.z = x < 0 ? 0.52 : -0.52;
+        group.add(ear);
+      });
+
+      // Top Spikes
+      for (let i = -1; i <= 1; i++) {
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.45, 16), purpleMat);
+        spike.position.set(i * 0.22, 1.08, -0.18);
+        spike.rotation.x = -0.3;
+        group.add(spike);
+      }
+
+      // Sinister Red Eyes
+      [-0.38, 0.38].forEach((x) => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.18, 20, 20), eyeMat);
+        eye.scale.set(1.25, 0.7, 0.5);
+        eye.position.set(x, 0.26, 0.96);
+        eye.rotation.z = x < 0 ? -0.32 : 0.32;
+        group.add(eye);
+      });
+
+      // Wide Mischievous Grin
+      const grin = new THREE.Mesh(new THREE.TorusGeometry(0.48, 0.11, 16, 32, Math.PI), smileMat);
+      grin.rotation.x = Math.PI;
+      grin.position.set(0, -0.05, 0.94);
+      group.add(grin);
+
+      // Arms & Legs
+      [-1.02, 1.02].forEach((x) => {
+        const arm = new THREE.Mesh(new THREE.ConeGeometry(0.26, 0.68, 20), purpleMat);
+        arm.position.set(x, -0.08, 0.25);
+        arm.rotation.z = x < 0 ? 1.8 : -1.8;
+        group.add(arm);
+      });
+
+      [-0.52, 0.52].forEach((x) => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.22, 0.5, 20), purpleMat);
+        leg.position.set(x, -0.95, 0.1);
+        group.add(leg);
+      });
+
+      return group;
+    }
+
+    function buildMasterBall3D() {
+      const group = new THREE.Group();
+
+      const topMat = new THREE.MeshStandardMaterial({
+        color: 0x9333ea,
+        roughness: 0.15,
+        metalness: 0.55
+      });
+      const pinkBumpMat = new THREE.MeshStandardMaterial({
+        color: 0xec4899,
+        emissive: 0xdb2777,
+        emissiveIntensity: 0.4,
+        roughness: 0.2
+      });
+      const bottomMat = new THREE.MeshStandardMaterial({
+        color: 0xf8fafc,
+        roughness: 0.18,
+        metalness: 0.25
+      });
+      const bandMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.3 });
+      const glowCenterMat = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 1.2
+      });
+
+      const topDome = new THREE.Group();
+      const topSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.12, 40, 24, 0, Math.PI * 2, 0, Math.PI / 2),
+        topMat
+      );
+      topDome.add(topSphere);
+
+      // Iconic Pink Master Ball Domes
+      [-0.58, 0.58].forEach((x) => {
+        const bump = new THREE.Mesh(new THREE.SphereGeometry(0.36, 24, 24), pinkBumpMat);
+        bump.position.set(x, 0.68, 0.52);
+        topDome.add(bump);
+      });
+      group.add(topDome);
+
+      const bottomSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(1.12, 40, 24, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+        bottomMat
+      );
+      group.add(bottomSphere);
+
+      // Middle Black Band
+      const band = new THREE.Mesh(new THREE.CylinderGeometry(1.13, 1.13, 0.16, 40), bandMat);
+      group.add(band);
+
+      // Front Latch Button
+      const outerBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.14, 28), bandMat);
+      outerBtn.rotation.x = Math.PI / 2;
+      outerBtn.position.z = 1.08;
+      group.add(outerBtn);
+
+      const innerBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.18, 28), glowCenterMat);
+      innerBtn.rotation.x = Math.PI / 2;
+      innerBtn.position.z = 1.1;
+      group.add(innerBtn);
+
+      group.userData = { topDome, innerBtn };
+      return group;
+    }
+
+    let activeModel = null;
+
+    function loadPokemonModel(pokeKey) {
+      while (modelHolder.children.length > 0) {
+        modelHolder.remove(modelHolder.children[0]);
+      }
+
+      if (pokeKey === 'pikachu') activeModel = buildPikachu3D();
+      else if (pokeKey === 'charizard') activeModel = buildCharizard3D();
+      else if (pokeKey === 'gengar') activeModel = buildGengar3D();
+      else activeModel = buildMasterBall3D();
+
+      modelHolder.add(activeModel);
+
+      // Update particle & ring colors
+      const pColor = POKEMON_DATA[pokeKey].particleColor;
+      ringMat.color.setHex(pColor);
+      rimLight.color.setHex(pColor);
+      orbs.forEach((o) => {
+        o.material.color.setHex(pColor);
+        o.material.emissive.setHex(pColor);
+      });
+    }
+
+    // ==========================================
+    // 5. تحديث بيانات البطاقة والتفاعل مع الماوس/اللمس
+    // ==========================================
+    const cardWrapper = document.getElementById('cardWrapper');
+    const rootStyle = document.documentElement.style;
+
+    function switchPokemon(pokeKey) {
+      currentPokeKey = pokeKey;
+      const d = POKEMON_DATA[pokeKey];
+
+      document.getElementById('cardStage').textContent = d.stage;
+      document.getElementById('cardName').textContent = d.name;
+      document.getElementById('cardHp').textContent = d.hp;
+      document.getElementById('cardOrb').textContent = d.orb;
+      document.getElementById('cardMeta').textContent = d.meta;
+      document.getElementById('atk1Title').textContent = d.atk1Title;
+      document.getElementById('atk1Dmg').textContent = d.atk1Dmg;
+      document.getElementById('atk1Desc').textContent = d.atk1Desc;
+      document.getElementById('atk2Title').textContent = d.atk2Title;
+      document.getElementById('atk2Dmg').textContent = d.atk2Dmg;
+      document.getElementById('atk2Desc').textContent = d.atk2Desc;
+      document.getElementById('cardWeakness').textContent = d.weakness;
+      document.getElementById('cardRarity').textContent = d.rarity;
+
+      rootStyle.setProperty('--primary', d.primary);
+      rootStyle.setProperty('--glow-color', d.glow);
+      rootStyle.setProperty('--card-bg-1', d.bg1);
+      rootStyle.setProperty('--card-bg-2', d.bg2);
+      rootStyle.setProperty('--art-bg-inner', d.artBg);
+
+      loadPokemonModel(pokeKey);
+      playPokeSound('switch', pokeKey);
+      triggerAttack(2);
+    }
+
+    document.querySelectorAll('.poke-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.poke-btn').forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+        switchPokemon(btn.dataset.poke);
+      });
+    });
+
+    // Trigger 3D Attack Animation
+    function triggerAttack(type = 1) {
+      attackType = type;
+      attackAnimProgress = 1.0;
+      playPokeSound('attack', currentPokeKey);
+
+      cardWrapper.classList.remove('shake');
+      void cardWrapper.offsetWidth;
+      cardWrapper.classList.add('shake');
+    }
+
+    document.getElementById('attackBtn1').addEventListener('click', () => triggerAttack(1));
+    document.getElementById('attackBtn2').addEventListener('click', () => triggerAttack(2));
+    document.getElementById('btnTriggerAttack').addEventListener('click', () => triggerAttack(1));
+
+    // Toggle Auto Spin & Sound
+    const btnAutoSpin = document.getElementById('btnAutoSpin');
+    btnAutoSpin.addEventListener('click', () => {
+      autoSpin = !autoSpin;
+      btnAutoSpin.classList.toggle('active', autoSpin);
+    });
+
+    const btnSound = document.getElementById('btnSound');
+    btnSound.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      btnSound.classList.toggle('active', soundEnabled);
+      btnSound.textContent = soundEnabled ? '🔊 المؤثرات الصوتية' : '🔇 الصوت مكتوم';
+    });
+
+    // Holographic Card 3D Tilt Logic (Mouse + Touch)
+    let targetRotX = 0;
+    let targetRotY = 0;
+
+    function handlePointerMove(clientX, clientY) {
+      const rect = cardWrapper.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      const px = Math.max(0, Math.min(1, x / rect.width));
+      const py = Math.max(0, Math.min(1, y / rect.height));
+
+      const ry = (px - 0.5) * 32; // -16deg to +16deg
+      const rx = (0.5 - py) * 28; // -14deg to +14deg
+      const hyp = Math.min(1, Math.hypot(px - 0.5, py - 0.5) * 1.8);
+
+      rootStyle.setProperty('--rx', `${rx.toFixed(2)}deg`);
+      rootStyle.setProperty('--ry', `${ry.toFixed(2)}deg`);
+      rootStyle.setProperty('--mx', `${(px * 100).toFixed(1)}%`);
+      rootStyle.setProperty('--my', `${(py * 100).toFixed(1)}%`);
+      rootStyle.setProperty('--hyp', hyp.toFixed(2));
+
+      targetRotY = (px - 0.5) * 0.9;
+      targetRotX = (py - 0.5) * 0.5;
+    }
+
+    function resetCardTilt() {
+      rootStyle.setProperty('--rx', '0deg');
+      rootStyle.setProperty('--ry', '0deg');
+      rootStyle.setProperty('--mx', '50%');
+      rootStyle.setProperty('--my', '50%');
+      rootStyle.setProperty('--hyp', '0');
+      targetRotX = 0;
+      targetRotY = 0;
+    }
+
+    const sceneStage = document.getElementById('sceneStage');
+    sceneStage.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+    sceneStage.addEventListener('mouseleave', resetCardTilt);
+    sceneStage.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+    sceneStage.addEventListener('touchend', resetCardTilt);
+
+    // ==========================================
+    // 6. حلقة التحريك المستمرة (Animation Loop)
+    // ==========================================
+    resizeRenderer();
+    loadPokemonModel('pikachu');
+
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+
+      if (activeModel) {
+        // Floating hover motion
+        activeModel.position.y = Math.sin(t * 2.6) * 0.12;
+
+        // Spin or follow pointer
+        if (autoSpin) {
+          activeModel.rotation.y = t * 0.85 + targetRotY;
+        } else {
+          activeModel.rotation.y += (targetRotY * 1.6 - activeModel.rotation.y) * 0.1;
+        }
+        activeModel.rotation.x += (targetRotX * 0.8 - activeModel.rotation.x) * 0.1;
+
+        // Character-specific idle animations
+        if (currentPokeKey === 'pikachu' && activeModel.userData.leftEar) {
+          activeModel.userData.leftEar.rotation.z = 0.42 + Math.sin(t * 5) * 0.08;
+          activeModel.userData.rightEar.rotation.z = -0.42 - Math.sin(t * 5 + 1) * 0.08;
+          activeModel.userData.tailGroup.rotation.z = Math.sin(t * 7) * 0.12;
+        } else if (currentPokeKey === 'charizard' && activeModel.userData.leftWing) {
+          const flap = Math.sin(t * 6) * 0.28;
+          activeModel.userData.leftWing.rotation.y = flap;
+          activeModel.userData.rightWing.rotation.y = -flap;
+          const flameScale = 1 + Math.sin(t * 18) * 0.22;
+          activeModel.userData.flame.scale.set(flameScale, flameScale, flameScale);
+        } else if (currentPokeKey === 'pokeball' && activeModel.userData.topDome) {
+          activeModel.userData.topDome.position.y = Math.max(0, Math.sin(t * 3) * 0.18);
+        }
+
+        // Attack burst animation
+        if (attackAnimProgress > 0) {
+          attackAnimProgress = Math.max(0, attackAnimProgress - 0.032);
+          const wave = Math.sin(attackAnimProgress * Math.PI);
+
+          if (attackType === 1) {
+            const s = 1 + wave * 0.38;
+            activeModel.scale.set(s, s, s);
+            activeModel.rotation.y += 0.28;
+          } else {
+            activeModel.position.y += wave * 0.55;
+            activeModel.rotation.x = wave * Math.PI * 2;
+          }
+          holoRing.scale.setScalar(1 + wave * 0.65);
+        } else {
+          activeModel.scale.set(1, 1, 1);
+          holoRing.scale.setScalar(1 + Math.sin(t * 3) * 0.05);
+        }
+      }
+
+      // Animate floating energy orbs
+      orbs.forEach((orb, idx) => {
+        const d = orb.userData;
+        const speedBoost = attackAnimProgress > 0 ? 4.5 : 1;
+        const curAngle = d.angle + t * d.speed * speedBoost;
+        const r = d.radius + (attackAnimProgress > 0 ? Math.sin(attackAnimProgress * Math.PI) * 0.6 : 0);
+        orb.position.x = Math.cos(curAngle) * r;
+        orb.position.z = Math.sin(curAngle) * r;
+        orb.position.y = d.yBase + Math.sin(t * 2.5 + idx) * 0.25;
+        orb.rotation.x += 0.04;
+        orb.rotation.y += 0.05;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+  </script>
+</body>
+</html>
